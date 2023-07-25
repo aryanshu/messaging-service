@@ -2,18 +2,14 @@ package com.aryanshu.code.config;
 
 import com.aryanshu.code.dto.UserSession;
 import com.aryanshu.code.repository.SessionRepository;
-import com.netflix.appinfo.InstanceInfo;
-import com.rabbitmq.client.BuiltinExchangeType;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -24,8 +20,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-import javax.websocket.Session;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,7 +37,9 @@ public class WebSocketConfig  implements WebSocketMessageBrokerConfigurer {
     @Autowired
     private SessionRepository sessionRepository;
 
-//    private SimpMessageSendingOperations messageTemplate;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
 
 
     @Override
@@ -53,7 +49,6 @@ public class WebSocketConfig  implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-//        registry.enableSimpleBroker("/topic");
         registry
                 .setApplicationDestinationPrefixes("/app")
                 .enableStompBrokerRelay("/topic")
@@ -88,8 +83,6 @@ public class WebSocketConfig  implements WebSocketMessageBrokerConfigurer {
                     sessionRepository.save(userSession);
                     List<ServiceInstance> instances = discoveryClient.getInstances(Instance.split(":")[0]);
 
-                    String topic = "/topic/private/" + userId;
-//                    messageTemplate.convertAndSend(topic,"topic created");
 
                     if (!instances.isEmpty()) {
                         for (ServiceInstance instance : instances) {
@@ -100,6 +93,7 @@ public class WebSocketConfig  implements WebSocketMessageBrokerConfigurer {
                         }
                     }
 
+
                     System.out.println("Connected Users: " + connectedUsers);
                 }
 
@@ -107,6 +101,9 @@ public class WebSocketConfig  implements WebSocketMessageBrokerConfigurer {
             }
         });
     }
+
+
+
 
 
 

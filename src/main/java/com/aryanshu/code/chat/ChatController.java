@@ -7,11 +7,14 @@ import com.aryanshu.code.repository.SessionRepository;
 import com.aryanshu.code.services.ChatRoomService;
 import com.aryanshu.code.services.ChatService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Controller;
+
+import java.util.Optional;
 
 
 @Controller
@@ -29,6 +32,9 @@ public class ChatController {
 
     @Autowired
     private SessionRepository sessionRepository;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
 
     @MessageMapping("/chat.sendMessage")
     public void processMessage(@Payload ChatMessage chatMessage) {
@@ -37,12 +43,20 @@ public class ChatController {
         chatMessage.setChatId(chatId.get());
         log.info(chatMessage.toString());
 
-        UserSession userSession = sessionRepository.findById(String.valueOf(chatMessage.getRecipientId())).orElseThrow();
-        log.info("userSession"+userSession.getSessionId());
+        Optional<UserSession> userSession = sessionRepository.findById(String.valueOf(chatMessage.getRecipientId()));
+
         chatService.save(chatMessage);
         String destination = "/topic/" +String.valueOf(chatMessage.getRecipientId());
-        messageTemplate.convertAndSend(destination,chatMessage.getContent());
-//        messageTemplate.convertAndSendToUser(String.valueOf(chatMessage.getRecipientId()), destination, chatMessage.getContent());
+
+        if(userSession.isPresent()){
+            messageTemplate.convertAndSend(destination, chatMessage.getContent());
+        }
+        else{
+            String routingKey = "user."+String.valueOf(chatMessage.getRecipientId());
+            System.out.println(routingKey);
+            rabbitTemplate.convertAndSend("amq.topic", routingKey, chatMessage.getContent());
+        }
+
     }
 
 
